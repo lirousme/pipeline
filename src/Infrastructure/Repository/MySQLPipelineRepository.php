@@ -28,6 +28,20 @@ final class MySQLPipelineRepository
         return $stmt->fetchAll();
     }
 
+
+    public function searchProblems(int $userId, string $query, int $limit = 8): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT id, text FROM problems WHERE user_id = :user_id AND text LIKE :query ORDER BY id DESC LIMIT :limit'
+        );
+        $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
+        $stmt->bindValue(':query', '%' . $query . '%', PDO::PARAM_STR);
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll();
+    }
+
     public function findProblem(int $userId, int $id): ?array
     {
         $stmt = $this->pdo->prepare('SELECT id, text FROM problems WHERE id = :id AND user_id = :user_id LIMIT 1');
