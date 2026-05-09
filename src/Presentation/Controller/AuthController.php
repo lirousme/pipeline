@@ -37,6 +37,7 @@ final class AuthController
             if ($mode === 'register') {
                 $user = $this->registerUser->execute($username, $password);
                 $_SESSION['auth_user'] = $user->username();
+                $_SESSION['auth_user_id'] = $user->id();
 
                 return [
                     'status' => 201,
@@ -50,6 +51,7 @@ final class AuthController
 
             $user = $this->loginUser->execute($username, $password);
             $_SESSION['auth_user'] = $user->username();
+                $_SESSION['auth_user_id'] = $user->id();
 
             return [
                 'status' => 200,
