@@ -27,6 +27,18 @@ if ($method === 'GET' && $action === 'list-problems') {
     exit;
 }
 
+
+if ($method === 'GET' && $action === 'search-problems') {
+    $q = trim((string) ($_GET['q'] ?? ''));
+    if ($q === '') {
+        echo json_encode(['items' => []], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    echo json_encode(['items' => $repo->searchProblems($userId, $q)], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 if ($method === 'GET' && $action === 'pipeline') {
     $rootId = (int) ($_GET['problem_id'] ?? 0);
     $root = $repo->findProblem($userId, $rootId);
@@ -78,17 +90,34 @@ if ($method === 'POST' && $action === 'create-problem') {
 
 if ($method === 'POST' && $action === 'add-conditional') {
     $father = (int) ($body['id_father_problem'] ?? 0);
-    $next = (int) ($body['id_next_problem'] ?? 0);
+    $selectedNext = (int) ($body['id_next_problem'] ?? 0);
+    $newProblemText = trim((string) ($body['next_problem_text'] ?? ''));
     $text = trim((string) ($body['text'] ?? ''));
 
-    if (!$repo->findProblem($userId, $father) || !$repo->findProblem($userId, $next) || $text === '') {
+    if (!$repo->findProblem($userId, $father) || $text === '') {
         http_response_code(422);
         echo json_encode(['message' => 'Dados inválidos']);
         exit;
     }
 
+    $next = 0;
+    if ($selectedNext > 0) {
+        if (!$repo->findProblem($userId, $selectedNext)) {
+            http_response_code(422);
+            echo json_encode(['message' => 'Problema selecionado inválido']);
+            exit;
+        }
+        $next = $selectedNext;
+    } elseif ($newProblemText !== '') {
+        $next = $repo->createProblem($userId, $newProblemText);
+    } else {
+        http_response_code(422);
+        echo json_encode(['message' => 'Selecione ou crie um problema para a condicional']);
+        exit;
+    }
+
     $id = $repo->addConditional($father, $next, $text);
-    echo json_encode(['id' => $id, 'message' => 'Condicional criada']);
+    echo json_encode(['id' => $id, 'id_next_problem' => $next, 'message' => 'Condicional criada']);
     exit;
 }
 
