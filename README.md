@@ -44,5 +44,5 @@ ALTER TABLE users MODIFY created_at DATETIME NOT NULL;
 
 
 ## Deploy em subpasta (`public_html/login`)
-- O projeto já inclui `index.php` e `auth.php` na raiz do repositório como ponte para a pasta `public`.
+- O projeto já inclui `index.php`, `auth.php` e `pipeline_api.php` na raiz do repositório como ponte para a pasta `public`.
 - Assim, ao publicar em `public_html/login`, a URL `https://seusite.com/login/` funciona sem precisar acessar `/login/public`.
