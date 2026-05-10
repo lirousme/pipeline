@@ -155,8 +155,22 @@ async function loadPipeline(id) {
 
     (d.nodes || []).forEach((n) => {
         const card = document.createElement('div');
-        card.className = 'relative pl-6';
-        card.innerHTML = `<div class='absolute left-2 top-0 bottom-0 w-px bg-slate-700'></div><div class='bg-slate-900 border border-white/10 rounded p-3'><div class='font-semibold'>Problema #${n.problem.id}</div><div>${n.problem.text}</div><ul class='mt-2 text-sm text-slate-300'>${n.conditionals.map(c => `<li>Se "${c.text}" → abre #${c.id_next_problem}</li>`).join('')}</ul></div>`;
+        card.className = 'relative pl-6 space-y-2';
+
+        const conditionalButtons = n.conditionals.length > 0
+            ? n.conditionals.map(c => `<button type='button' class='bg-slate-800 border border-white/10 rounded px-3 py-2 text-sm text-left hover:bg-slate-700 transition'>Se "${c.text}" → abre #${c.id_next_problem}</button>`).join('')
+            : "<p class='text-sm text-slate-400'>Sem condicionais para este problema.</p>";
+
+        card.innerHTML = `
+            <div class='absolute left-2 top-0 bottom-0 w-px bg-slate-700'></div>
+            <div class='bg-slate-900 border border-white/10 rounded p-3'>
+                <div>${n.problem.text}</div>
+            </div>
+            <div class='bg-slate-900 border border-white/10 rounded p-3'>
+                <div class='grid grid-cols-1 md:grid-cols-3 gap-2'>
+                    ${conditionalButtons}
+                </div>
+            </div>`;
         pipelineView.appendChild(card);
     });
 };
