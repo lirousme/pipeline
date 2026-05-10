@@ -51,6 +51,23 @@ final class MySQLPipelineRepository
         return $row ?: null;
     }
 
+
+    public function updateProblem(int $userId, int $id, string $text): bool
+    {
+        $stmt = $this->pdo->prepare('UPDATE problems SET text = :text WHERE id = :id AND user_id = :user_id');
+        $stmt->execute(['text' => $text, 'id' => $id, 'user_id' => $userId]);
+
+        return $stmt->rowCount() > 0;
+    }
+
+    public function deleteProblem(int $userId, int $id): bool
+    {
+        $stmt = $this->pdo->prepare('DELETE FROM problems WHERE id = :id AND user_id = :user_id');
+        $stmt->execute(['id' => $id, 'user_id' => $userId]);
+
+        return $stmt->rowCount() > 0;
+    }
+
     public function addConditional(int $father, int $next, string $text): int
     {
         $stmt = $this->pdo->prepare('INSERT INTO conditionals (id_father_problem, id_next_problem, text) VALUES (:father, :next, :text)');

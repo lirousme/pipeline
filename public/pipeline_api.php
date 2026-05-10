@@ -91,6 +91,46 @@ if ($method === 'GET' && $action === 'pipeline') {
     exit;
 }
 
+
+if ($method === 'POST' && $action === 'update-problem') {
+    $problemId = (int) ($body['problem_id'] ?? 0);
+    $text = trim((string) ($body['text'] ?? ''));
+
+    if ($problemId <= 0 || $text === '') {
+        http_response_code(422);
+        echo json_encode(['message' => 'Dados inválidos']);
+        exit;
+    }
+
+    if (!$repo->updateProblem($userId, $problemId, $text)) {
+        http_response_code(404);
+        echo json_encode(['message' => 'Problema não encontrado']);
+        exit;
+    }
+
+    echo json_encode(['message' => 'Problema atualizado']);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'delete-problem') {
+    $problemId = (int) ($body['problem_id'] ?? 0);
+
+    if ($problemId <= 0) {
+        http_response_code(422);
+        echo json_encode(['message' => 'Dados inválidos']);
+        exit;
+    }
+
+    if (!$repo->deleteProblem($userId, $problemId)) {
+        http_response_code(404);
+        echo json_encode(['message' => 'Problema não encontrado']);
+        exit;
+    }
+
+    echo json_encode(['message' => 'Problema excluído']);
+    exit;
+}
+
 if ($method === 'POST' && $action === 'create-problem') {
     $text = trim((string) ($body['text'] ?? ''));
     if ($text === '') {
