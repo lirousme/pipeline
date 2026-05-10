@@ -28,6 +28,12 @@ if ($method === 'GET' && $action === 'list-problems') {
 }
 
 
+
+if ($method === 'GET' && $action === 'list-due-problems') {
+    echo json_encode(['items' => $repo->listDueProblems($userId)], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 if ($method === 'GET' && $action === 'search-problems') {
     $q = trim((string) ($_GET['q'] ?? ''));
     if ($q === '') {
@@ -85,6 +91,28 @@ if ($method === 'POST' && $action === 'create-problem') {
 
     $id = $repo->createProblem($userId, $text);
     echo json_encode(['id' => $id, 'message' => 'Problema criado']);
+    exit;
+}
+
+
+if ($method === 'POST' && $action === 'update-expansion') {
+    $problemId = (int) ($body['problem_id'] ?? 0);
+    $expansions = (int) ($body['expansions'] ?? -1);
+
+    if ($problemId <= 0 || $expansions < 0) {
+        http_response_code(422);
+        echo json_encode(['message' => 'Dados inválidos']);
+        exit;
+    }
+
+    $updated = $repo->updateExpansion($userId, $problemId, $expansions);
+    if (!$updated) {
+        http_response_code(404);
+        echo json_encode(['message' => 'Problema não encontrado']);
+        exit;
+    }
+
+    echo json_encode(['item' => $updated, 'message' => 'Expansion atualizada']);
     exit;
 }
 
