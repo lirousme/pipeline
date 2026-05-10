@@ -39,6 +39,22 @@ if ($method === 'GET' && $action === 'search-problems') {
     exit;
 }
 
+
+if ($method === 'GET' && $action === 'problem-detail') {
+    $problemId = (int) ($_GET['problem_id'] ?? 0);
+    $problem = $repo->findProblem($userId, $problemId);
+
+    if (!$problem) {
+        http_response_code(404);
+        echo json_encode(['message' => 'Problema não encontrado']);
+        exit;
+    }
+
+    $conditionals = $repo->getConditionalsFrom($problemId);
+    echo json_encode(['problem' => $problem, 'conditionals' => $conditionals], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 if ($method === 'GET' && $action === 'pipeline') {
     $rootId = (int) ($_GET['problem_id'] ?? 0);
     $root = $repo->findProblem($userId, $rootId);

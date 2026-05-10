@@ -35,20 +35,21 @@ if ($problemId <= 0) {
 <header class="border-b border-white/10 p-4 flex justify-between items-center">
     <div>
         <strong>Pipeline de <?= htmlspecialchars((string) $loggedUser) ?></strong>
-        <p class="text-sm text-slate-300">Problema raiz #<?= htmlspecialchars((string) $problemId) ?></p>
+        <p id="currentProblemLabel" class="text-sm text-slate-300"></p>
     </div>
     <div class="flex gap-2">
-        <a href="<?= htmlspecialchars($homeUrl) ?>" class="bg-slate-700 px-3 py-1 rounded">Voltar</a>
+        <button id="backProblem" class="bg-slate-700 px-3 py-1 rounded disabled:opacity-50" disabled>Voltar problema</button>
+        <a href="<?= htmlspecialchars($homeUrl) ?>" class="bg-slate-700 px-3 py-1 rounded">Voltar início</a>
     </div>
 </header>
 
 <main class="p-4">
     <section>
         <div class="flex justify-between items-center mb-3">
-            <h2 class="font-semibold">Fluxograma condicional (vertical)</h2>
+            <h2 class="font-semibold">Fluxograma condicional (um problema por vez)</h2>
             <button id="openConditionalModal" class="bg-indigo-600 rounded px-3 py-1 text-sm">+ Condicional neste problema</button>
         </div>
-        <div id="pipelineView" class="space-y-3"></div>
+        <div id="pipelineView"></div>
     </section>
 </main>
 
@@ -75,8 +76,12 @@ const searchSuggestions = document.getElementById('searchSuggestions');
 const saveConditional = document.getElementById('saveConditional');
 const selectedProblemInfo = document.getElementById('selectedProblemInfo');
 const openConditionalModal = document.getElementById('openConditionalModal');
+const backProblem = document.getElementById('backProblem');
+const currentProblemLabel = document.getElementById('currentProblemLabel');
 
 let selectedProblem = null;
+let currentProblemId = Number(rootProblemId);
+const problemHistory = [];
 
 openConditionalModal.onclick = () => conditionalModal.classList.remove('hidden');
 conditionalModal.onclick = (e) => { if (e.target === conditionalModal) closeConditionalModal(); };
@@ -87,6 +92,10 @@ function closeConditionalModal() {
     searchSuggestions.innerHTML = '';
     selectedProblem = null;
     selectedProblemInfo.classList.add('hidden');
+}
+
+function updateBackButton() {
+    backProblem.disabled = problemHistory.length === 0;
 }
 
 function selectProblem(problem) {
@@ -124,7 +133,7 @@ saveConditional.onclick = async () => {
     const searchValue = nextProblemSearch.value.trim();
     if (searchValue === '') return;
 
-    const payload = { id_father_problem: rootProblemId, text: searchValue };
+    const payload = { id_father_problem: currentProblemId, text: searchValue };
     if (selectedProblem) {
         payload.id_next_problem = Number(selectedProblem.id);
     } else {
@@ -139,60 +148,73 @@ saveConditional.onclick = async () => {
 
     if (r.ok) {
         closeConditionalModal();
-        loadPipeline(rootProblemId);
+        loadProblem(currentProblemId);
     }
 };
 
-async function loadPipeline(id) {
-    const r = await fetch(api + '?action=pipeline&problem_id=' + id);
+backProblem.onclick = () => {
+    if (problemHistory.length === 0) return;
+    currentProblemId = problemHistory.pop();
+    updateBackButton();
+    loadProblem(currentProblemId);
+};
+
+function renderProblem(problem, conditionals) {
+    currentProblemLabel.textContent = `Problema atual #${problem.id}`;
+    pipelineView.innerHTML = '';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'space-y-3';
+
+    const problemCard = document.createElement('div');
+    problemCard.className = 'bg-slate-900 border border-white/10 rounded p-3';
+    problemCard.textContent = problem.text || '';
+
+    const conditionalsCard = document.createElement('div');
+    conditionalsCard.className = 'bg-slate-900 border border-white/10 rounded p-3';
+
+    const conditionalsGrid = document.createElement('div');
+    conditionalsGrid.className = 'grid grid-cols-1 md:grid-cols-3 gap-2';
+
+    if ((conditionals || []).length === 0) {
+        const emptyText = document.createElement('p');
+        emptyText.className = 'text-sm text-slate-400';
+        emptyText.textContent = 'Sem condicionais para este problema.';
+        conditionalsGrid.appendChild(emptyText);
+    } else {
+        conditionals.forEach((c) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'bg-slate-800 border border-white/10 rounded px-3 py-2 text-sm text-left hover:bg-slate-700 transition';
+            button.textContent = c.text;
+            button.onclick = () => {
+                problemHistory.push(currentProblemId);
+                currentProblemId = Number(c.id_next_problem);
+                updateBackButton();
+                loadProblem(currentProblemId);
+            };
+            conditionalsGrid.appendChild(button);
+        });
+    }
+
+    conditionalsCard.appendChild(conditionalsGrid);
+    wrapper.append(problemCard, conditionalsCard);
+    pipelineView.appendChild(wrapper);
+}
+
+async function loadProblem(id) {
+    const r = await fetch(api + '?action=problem-detail&problem_id=' + id);
     if (!r.ok) {
-        pipelineView.innerHTML = '<p class="text-red-300">Não foi possível carregar o pipeline.</p>';
+        pipelineView.innerHTML = '<p class="text-red-300">Não foi possível carregar o problema.</p>';
         return;
     }
 
     const d = await r.json();
-    pipelineView.innerHTML = '';
+    renderProblem(d.problem || {}, d.conditionals || []);
+}
 
-    (d.nodes || []).forEach((n) => {
-        const card = document.createElement('div');
-        card.className = 'relative pl-6 space-y-2';
-
-        const line = document.createElement('div');
-        line.className = 'absolute left-2 top-0 bottom-0 w-px bg-slate-700';
-
-        const problemCard = document.createElement('div');
-        problemCard.className = 'bg-slate-900 border border-white/10 rounded p-3';
-        const problemText = document.createElement('div');
-        problemText.textContent = n.problem.text || '';
-        problemCard.appendChild(problemText);
-
-        const conditionalsCard = document.createElement('div');
-        conditionalsCard.className = 'bg-slate-900 border border-white/10 rounded p-3';
-        const conditionalsGrid = document.createElement('div');
-        conditionalsGrid.className = 'grid grid-cols-1 md:grid-cols-3 gap-2';
-
-        if ((n.conditionals || []).length > 0) {
-            n.conditionals.forEach((c) => {
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'bg-slate-800 border border-white/10 rounded px-3 py-2 text-sm text-left hover:bg-slate-700 transition';
-                button.textContent = `Se "${c.text}" → abre #${c.id_next_problem}`;
-                conditionalsGrid.appendChild(button);
-            });
-        } else {
-            const emptyText = document.createElement('p');
-            emptyText.className = 'text-sm text-slate-400';
-            emptyText.textContent = 'Sem condicionais para este problema.';
-            conditionalsGrid.appendChild(emptyText);
-        }
-
-        conditionalsCard.appendChild(conditionalsGrid);
-        card.append(line, problemCard, conditionalsCard);
-        pipelineView.appendChild(card);
-    });
-};
-
-loadPipeline(rootProblemId);
+updateBackButton();
+loadProblem(rootProblemId);
 </script>
 </body>
 </html>
