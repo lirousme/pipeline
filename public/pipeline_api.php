@@ -177,5 +177,44 @@ if ($method === 'POST' && $action === 'add-conditional') {
     exit;
 }
 
+if ($method === 'POST' && $action === 'update-conditional') {
+    $conditionalId = (int) ($body['conditional_id'] ?? 0);
+    $text = trim((string) ($body['text'] ?? ''));
+
+    if ($conditionalId <= 0 || $text === '') {
+        http_response_code(422);
+        echo json_encode(['message' => 'Dados inválidos']);
+        exit;
+    }
+
+    if (!$repo->updateConditional($userId, $conditionalId, $text)) {
+        http_response_code(404);
+        echo json_encode(['message' => 'Condicional não encontrada']);
+        exit;
+    }
+
+    echo json_encode(['message' => 'Condicional atualizada']);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'delete-conditional') {
+    $conditionalId = (int) ($body['conditional_id'] ?? 0);
+
+    if ($conditionalId <= 0) {
+        http_response_code(422);
+        echo json_encode(['message' => 'Dados inválidos']);
+        exit;
+    }
+
+    if (!$repo->deleteConditional($userId, $conditionalId)) {
+        http_response_code(404);
+        echo json_encode(['message' => 'Condicional não encontrada']);
+        exit;
+    }
+
+    echo json_encode(['message' => 'Condicional excluída']);
+    exit;
+}
+
 http_response_code(404);
 echo json_encode(['message' => 'Rota inválida']);
