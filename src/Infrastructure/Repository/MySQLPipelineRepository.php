@@ -22,17 +22,39 @@ final class MySQLPipelineRepository
 
     public function listProblems(int $userId): array
     {
-        $stmt = $this->pdo->prepare('SELECT id, text FROM problems WHERE user_id = :user_id ORDER BY id DESC');
+        $stmt = $this->pdo->prepare('SELECT id, text, expansions, proxima_expansion FROM problems WHERE user_id = :user_id ORDER BY id DESC');
         $stmt->execute(['user_id' => $userId]);
 
         return $stmt->fetchAll();
     }
 
+    public function listDueProblems(int $userId): array
+    {
+        $stmt = $this->pdo->prepare('SELECT id, text, expansions, proxima_expansion FROM problems WHERE user_id = :user_id AND proxima_expansion IS NOT NULL AND proxima_expansion <= UTC_TIMESTAMP() ORDER BY proxima_expansion ASC, id ASC');
+        $stmt->execute(['user_id' => $userId]);
+
+        return $stmt->fetchAll();
+    }
+
+    public function updateExpansion(int $userId, int $problemId, int $expansions): ?array
+    {
+        $stmt = $this->pdo->prepare('UPDATE problems SET expansions = :expansions, proxima_expansion = DATE_ADD(COALESCE(proxima_expansion, UTC_TIMESTAMP()), INTERVAL :expansions DAY) WHERE id = :id AND user_id = :user_id');
+        $stmt->bindValue(':expansions', $expansions, PDO::PARAM_INT);
+        $stmt->bindValue(':id', $problemId, PDO::PARAM_INT);
+        $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        if ($stmt->rowCount() === 0) {
+            return null;
+        }
+
+        return $this->findProblem($userId, $problemId);
+    }
 
     public function searchProblems(int $userId, string $query, int $limit = 8): array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT id, text FROM problems WHERE user_id = :user_id AND text LIKE :query ORDER BY id DESC LIMIT :limit'
+            'SELECT id, text, expansions, proxima_expansion FROM problems WHERE user_id = :user_id AND text LIKE :query ORDER BY id DESC LIMIT :limit'
         );
         $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
         $stmt->bindValue(':query', '%' . $query . '%', PDO::PARAM_STR);
@@ -44,7 +66,7 @@ final class MySQLPipelineRepository
 
     public function findProblem(int $userId, int $id): ?array
     {
-        $stmt = $this->pdo->prepare('SELECT id, text FROM problems WHERE id = :id AND user_id = :user_id LIMIT 1');
+        $stmt = $this->pdo->prepare('SELECT id, text, expansions, proxima_expansion FROM problems WHERE id = :id AND user_id = :user_id LIMIT 1');
         $stmt->execute(['id' => $id, 'user_id' => $userId]);
         $row = $stmt->fetch();
 
