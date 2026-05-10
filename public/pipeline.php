@@ -65,6 +65,23 @@ if ($problemId <= 0) {
     </div>
 </div>
 
+
+<div id="problemActionsModal" class="hidden fixed inset-0 bg-black/70 items-center justify-center">
+    <div class="bg-slate-900 p-4 rounded w-full max-w-lg border border-white/10">
+        <h3 class="mb-3 text-lg font-semibold">Configurar problema</h3>
+        <div class="space-y-3">
+            <textarea id="problemTextEdit" class="w-full bg-slate-800 rounded p-2 min-h-28" placeholder="Texto do problema"></textarea>
+            <div class="flex justify-between gap-2">
+                <button id="deleteProblemBtn" class="bg-red-700 rounded px-3 py-1 text-sm">Excluir problema</button>
+                <div class="flex gap-2">
+                    <button id="cancelProblemEdit" class="bg-slate-700 rounded px-3 py-1 text-sm">Cancelar</button>
+                    <button id="saveProblemEdit" class="bg-indigo-600 rounded px-3 py-1 text-sm">Salvar alterações</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 const api = <?= json_encode($apiUrl) ?>;
 const rootProblemId = <?= json_encode($problemId) ?>;
@@ -78,10 +95,31 @@ const selectedProblemInfo = document.getElementById('selectedProblemInfo');
 const openConditionalModal = document.getElementById('openConditionalModal');
 const backProblem = document.getElementById('backProblem');
 const currentProblemLabel = document.getElementById('currentProblemLabel');
+const problemActionsModal = document.getElementById('problemActionsModal');
+const problemTextEdit = document.getElementById('problemTextEdit');
+const saveProblemEdit = document.getElementById('saveProblemEdit');
+const deleteProblemBtn = document.getElementById('deleteProblemBtn');
+const cancelProblemEdit = document.getElementById('cancelProblemEdit');
 
 let selectedProblem = null;
 let currentProblemId = Number(rootProblemId);
 const problemHistory = [];
+let editingProblemId = null;
+
+problemActionsModal.onclick = (e) => { if (e.target === problemActionsModal) closeProblemActionsModal(); };
+cancelProblemEdit.onclick = () => closeProblemActionsModal();
+
+function openProblemActionsModal(problem) {
+    editingProblemId = Number(problem.id);
+    problemTextEdit.value = problem.text || '';
+    problemActionsModal.classList.remove('hidden');
+}
+
+function closeProblemActionsModal() {
+    editingProblemId = null;
+    problemTextEdit.value = '';
+    problemActionsModal.classList.add('hidden');
+}
 
 openConditionalModal.onclick = () => conditionalModal.classList.remove('hidden');
 conditionalModal.onclick = (e) => { if (e.target === conditionalModal) closeConditionalModal(); };
@@ -152,6 +190,38 @@ saveConditional.onclick = async () => {
     }
 };
 
+
+saveProblemEdit.onclick = async () => {
+    const text = problemTextEdit.value.trim();
+    if (!editingProblemId || text === '') return;
+
+    const r = await fetch(api + '?action=update-problem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ problem_id: editingProblemId, text })
+    });
+
+    if (r.ok) {
+        closeProblemActionsModal();
+        loadProblem(currentProblemId);
+    }
+};
+
+deleteProblemBtn.onclick = async () => {
+    if (!editingProblemId) return;
+    if (!confirm('Tem certeza que deseja excluir este problema?')) return;
+
+    const r = await fetch(api + '?action=delete-problem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ problem_id: editingProblemId })
+    });
+
+    if (r.ok) {
+        window.location.href = <?= json_encode($homeUrl) ?>;
+    }
+};
+
 backProblem.onclick = () => {
     if (problemHistory.length === 0) return;
     currentProblemId = problemHistory.pop();
@@ -168,7 +238,23 @@ function renderProblem(problem, conditionals) {
 
     const problemCard = document.createElement('div');
     problemCard.className = 'bg-slate-900 border border-white/10 rounded p-3';
-    problemCard.textContent = problem.text || '';
+
+    const problemCardHeader = document.createElement('div');
+    problemCardHeader.className = 'flex justify-end';
+
+    const configureProblemBtn = document.createElement('button');
+    configureProblemBtn.type = 'button';
+    configureProblemBtn.className = 'text-slate-300 hover:text-white';
+    configureProblemBtn.title = 'Configurar problema';
+    configureProblemBtn.innerHTML = '⚙️';
+    configureProblemBtn.onclick = () => openProblemActionsModal(problem);
+
+    const problemText = document.createElement('p');
+    problemText.className = 'mt-2';
+    problemText.textContent = problem.text || '';
+
+    problemCardHeader.appendChild(configureProblemBtn);
+    problemCard.append(problemCardHeader, problemText);
 
     const conditionalsCard = document.createElement('div');
     conditionalsCard.className = 'bg-slate-900 border border-white/10 rounded p-3';
