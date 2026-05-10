@@ -157,20 +157,37 @@ async function loadPipeline(id) {
         const card = document.createElement('div');
         card.className = 'relative pl-6 space-y-2';
 
-        const conditionalButtons = n.conditionals.length > 0
-            ? n.conditionals.map(c => `<button type='button' class='bg-slate-800 border border-white/10 rounded px-3 py-2 text-sm text-left hover:bg-slate-700 transition'>Se "${c.text}" → abre #${c.id_next_problem}</button>`).join('')
-            : "<p class='text-sm text-slate-400'>Sem condicionais para este problema.</p>";
+        const line = document.createElement('div');
+        line.className = 'absolute left-2 top-0 bottom-0 w-px bg-slate-700';
 
-        card.innerHTML = `
-            <div class='absolute left-2 top-0 bottom-0 w-px bg-slate-700'></div>
-            <div class='bg-slate-900 border border-white/10 rounded p-3'>
-                <div>${n.problem.text}</div>
-            </div>
-            <div class='bg-slate-900 border border-white/10 rounded p-3'>
-                <div class='grid grid-cols-1 md:grid-cols-3 gap-2'>
-                    ${conditionalButtons}
-                </div>
-            </div>`;
+        const problemCard = document.createElement('div');
+        problemCard.className = 'bg-slate-900 border border-white/10 rounded p-3';
+        const problemText = document.createElement('div');
+        problemText.textContent = n.problem.text || '';
+        problemCard.appendChild(problemText);
+
+        const conditionalsCard = document.createElement('div');
+        conditionalsCard.className = 'bg-slate-900 border border-white/10 rounded p-3';
+        const conditionalsGrid = document.createElement('div');
+        conditionalsGrid.className = 'grid grid-cols-1 md:grid-cols-3 gap-2';
+
+        if ((n.conditionals || []).length > 0) {
+            n.conditionals.forEach((c) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'bg-slate-800 border border-white/10 rounded px-3 py-2 text-sm text-left hover:bg-slate-700 transition';
+                button.textContent = `Se "${c.text}" → abre #${c.id_next_problem}`;
+                conditionalsGrid.appendChild(button);
+            });
+        } else {
+            const emptyText = document.createElement('p');
+            emptyText.className = 'text-sm text-slate-400';
+            emptyText.textContent = 'Sem condicionais para este problema.';
+            conditionalsGrid.appendChild(emptyText);
+        }
+
+        conditionalsCard.appendChild(conditionalsGrid);
+        card.append(line, problemCard, conditionalsCard);
         pipelineView.appendChild(card);
     });
 };
