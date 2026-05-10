@@ -83,4 +83,29 @@ final class MySQLPipelineRepository
 
         return $stmt->fetchAll();
     }
+
+    public function updateConditional(int $userId, int $conditionalId, string $text): bool
+    {
+        $stmt = $this->pdo->prepare(
+            'UPDATE conditionals c
+            INNER JOIN problems p ON p.id = c.id_father_problem
+            SET c.text = :text
+            WHERE c.id = :conditional_id AND p.user_id = :user_id'
+        );
+        $stmt->execute(['text' => $text, 'conditional_id' => $conditionalId, 'user_id' => $userId]);
+
+        return $stmt->rowCount() > 0;
+    }
+
+    public function deleteConditional(int $userId, int $conditionalId): bool
+    {
+        $stmt = $this->pdo->prepare(
+            'DELETE c FROM conditionals c
+            INNER JOIN problems p ON p.id = c.id_father_problem
+            WHERE c.id = :conditional_id AND p.user_id = :user_id'
+        );
+        $stmt->execute(['conditional_id' => $conditionalId, 'user_id' => $userId]);
+
+        return $stmt->rowCount() > 0;
+    }
 }

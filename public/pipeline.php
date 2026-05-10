@@ -82,6 +82,22 @@ if ($problemId <= 0) {
     </div>
 </div>
 
+<div id="conditionalActionsModal" class="hidden fixed inset-0 bg-black/70 items-center justify-center">
+    <div class="bg-slate-900 p-4 rounded w-full max-w-lg border border-white/10">
+        <h3 class="mb-3 text-lg font-semibold">Configurar condicional</h3>
+        <div class="space-y-3">
+            <textarea id="conditionalTextEdit" class="w-full bg-slate-800 rounded p-2 min-h-24" placeholder="Texto da condicional"></textarea>
+            <div class="flex justify-between gap-2">
+                <button id="deleteConditionalBtn" class="bg-red-700 rounded px-3 py-1 text-sm">Excluir condicional</button>
+                <div class="flex gap-2">
+                    <button id="cancelConditionalEdit" class="bg-slate-700 rounded px-3 py-1 text-sm">Cancelar</button>
+                    <button id="saveConditionalEdit" class="bg-indigo-600 rounded px-3 py-1 text-sm">Salvar alterações</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 const api = <?= json_encode($apiUrl) ?>;
 const rootProblemId = <?= json_encode($problemId) ?>;
@@ -100,14 +116,34 @@ const problemTextEdit = document.getElementById('problemTextEdit');
 const saveProblemEdit = document.getElementById('saveProblemEdit');
 const deleteProblemBtn = document.getElementById('deleteProblemBtn');
 const cancelProblemEdit = document.getElementById('cancelProblemEdit');
+const conditionalActionsModal = document.getElementById('conditionalActionsModal');
+const conditionalTextEdit = document.getElementById('conditionalTextEdit');
+const deleteConditionalBtn = document.getElementById('deleteConditionalBtn');
+const cancelConditionalEdit = document.getElementById('cancelConditionalEdit');
+const saveConditionalEdit = document.getElementById('saveConditionalEdit');
 
 let selectedProblem = null;
 let currentProblemId = Number(rootProblemId);
 const problemHistory = [];
 let editingProblemId = null;
+let editingConditionalId = null;
 
 problemActionsModal.onclick = (e) => { if (e.target === problemActionsModal) closeProblemActionsModal(); };
 cancelProblemEdit.onclick = () => closeProblemActionsModal();
+conditionalActionsModal.onclick = (e) => { if (e.target === conditionalActionsModal) closeConditionalActionsModal(); };
+cancelConditionalEdit.onclick = () => closeConditionalActionsModal();
+
+function openConditionalActionsModal(conditional) {
+    editingConditionalId = Number(conditional.id);
+    conditionalTextEdit.value = conditional.text || '';
+    conditionalActionsModal.classList.remove('hidden');
+}
+
+function closeConditionalActionsModal() {
+    editingConditionalId = null;
+    conditionalTextEdit.value = '';
+    conditionalActionsModal.classList.add('hidden');
+}
 
 function openProblemActionsModal(problem) {
     editingProblemId = Number(problem.id);
@@ -222,6 +258,38 @@ deleteProblemBtn.onclick = async () => {
     }
 };
 
+saveConditionalEdit.onclick = async () => {
+    const text = conditionalTextEdit.value.trim();
+    if (!editingConditionalId || text === '') return;
+
+    const r = await fetch(api + '?action=update-conditional', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conditional_id: editingConditionalId, text })
+    });
+
+    if (r.ok) {
+        closeConditionalActionsModal();
+        loadProblem(currentProblemId);
+    }
+};
+
+deleteConditionalBtn.onclick = async () => {
+    if (!editingConditionalId) return;
+    if (!confirm('Tem certeza que deseja excluir esta condicional?')) return;
+
+    const r = await fetch(api + '?action=delete-conditional', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conditional_id: editingConditionalId })
+    });
+
+    if (r.ok) {
+        closeConditionalActionsModal();
+        loadProblem(currentProblemId);
+    }
+};
+
 backProblem.onclick = () => {
     if (problemHistory.length === 0) return;
     currentProblemId = problemHistory.pop();
@@ -269,17 +337,36 @@ function renderProblem(problem, conditionals) {
         conditionalsGrid.appendChild(emptyText);
     } else {
         conditionals.forEach((c) => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'bg-slate-800 border border-white/10 rounded px-3 py-2 text-sm text-left hover:bg-slate-700 transition';
-            button.textContent = c.text;
-            button.onclick = () => {
+            const conditionalCard = document.createElement('div');
+            conditionalCard.className = 'bg-slate-800 border border-white/10 rounded px-3 py-2 text-sm transition hover:bg-slate-700';
+
+            const conditionalHeader = document.createElement('div');
+            conditionalHeader.className = 'flex justify-end';
+
+            const configureConditionalBtn = document.createElement('button');
+            configureConditionalBtn.type = 'button';
+            configureConditionalBtn.className = 'text-slate-300 hover:text-white';
+            configureConditionalBtn.title = 'Configurar condicional';
+            configureConditionalBtn.innerHTML = '⚙️';
+            configureConditionalBtn.onclick = (e) => {
+                e.stopPropagation();
+                openConditionalActionsModal(c);
+            };
+
+            const conditionalText = document.createElement('p');
+            conditionalText.className = 'mt-1';
+            conditionalText.textContent = c.text;
+
+            conditionalCard.onclick = () => {
                 problemHistory.push(currentProblemId);
                 currentProblemId = Number(c.id_next_problem);
                 updateBackButton();
                 loadProblem(currentProblemId);
             };
-            conditionalsGrid.appendChild(button);
+
+            conditionalHeader.appendChild(configureConditionalBtn);
+            conditionalCard.append(conditionalHeader, conditionalText);
+            conditionalsGrid.appendChild(conditionalCard);
         });
     }
 
