@@ -38,6 +38,7 @@ if ($problemId <= 0) {
         <p id="currentProblemLabel" class="text-sm text-slate-300"></p>
     </div>
     <div class="flex gap-2">
+        <button id="concludeProblem" class="bg-emerald-600 px-3 py-1 rounded">Concluir problema</button>
         <button id="backProblem" class="bg-slate-700 px-3 py-1 rounded disabled:opacity-50" disabled>Voltar problema</button>
         <a href="<?= htmlspecialchars($homeUrl) ?>" class="bg-slate-700 px-3 py-1 rounded">Voltar início</a>
     </div>
@@ -78,6 +79,17 @@ if ($problemId <= 0) {
                     <option value="2">Não mostrar na home</option>
                 </select>
             </div>
+            <div>
+                <label for="problemUseGapEdit" class="block text-sm mb-1">Usar gap de disponibilidade?</label>
+                <select id="problemUseGapEdit" class="w-full bg-slate-800 rounded p-2">
+                    <option value="0">Não</option>
+                    <option value="1">Sim</option>
+                </select>
+            </div>
+            <div id="problemGapWrapper" class="hidden">
+                <label for="problemGapEdit" class="block text-sm mb-1">Gap (minutos)</label>
+                <input id="problemGapEdit" type="number" min="1" class="w-full bg-slate-800 rounded p-2" />
+            </div>
             <div class="flex justify-between gap-2">
                 <button id="deleteProblemBtn" class="bg-red-700 rounded px-3 py-1 text-sm">Excluir problema</button>
                 <div class="flex gap-2">
@@ -117,12 +129,16 @@ const saveConditional = document.getElementById('saveConditional');
 const selectedProblemInfo = document.getElementById('selectedProblemInfo');
 const openConditionalModal = document.getElementById('openConditionalModal');
 const backProblem = document.getElementById('backProblem');
+const concludeProblem = document.getElementById('concludeProblem');
 const currentProblemLabel = document.getElementById('currentProblemLabel');
 const problemActionsModal = document.getElementById('problemActionsModal');
 const problemTextEdit = document.getElementById('problemTextEdit');
 const saveProblemEdit = document.getElementById('saveProblemEdit');
 const problemHomeEdit = document.getElementById('problemHomeEdit');
 const deleteProblemBtn = document.getElementById('deleteProblemBtn');
+const problemUseGapEdit = document.getElementById('problemUseGapEdit');
+const problemGapEdit = document.getElementById('problemGapEdit');
+const problemGapWrapper = document.getElementById('problemGapWrapper');
 const cancelProblemEdit = document.getElementById('cancelProblemEdit');
 const conditionalActionsModal = document.getElementById('conditionalActionsModal');
 const conditionalTextEdit = document.getElementById('conditionalTextEdit');
@@ -135,6 +151,7 @@ let currentProblemId = Number(rootProblemId);
 const problemHistory = [];
 let editingProblemId = null;
 let editingConditionalId = null;
+let countdownInterval = null;
 
 problemActionsModal.onclick = (e) => { if (e.target === problemActionsModal) closeProblemActionsModal(); };
 cancelProblemEdit.onclick = () => closeProblemActionsModal();
@@ -157,6 +174,10 @@ function openProblemActionsModal(problem) {
     editingProblemId = Number(problem.id);
     problemTextEdit.value = problem.text || '';
     problemHomeEdit.value = String(problem.home || 1);
+    const gap = Number(problem.gap || 0);
+    problemUseGapEdit.value = gap > 0 ? '1' : '0';
+    problemGapEdit.value = gap > 0 ? String(gap) : '';
+    toggleGapInput();
     problemActionsModal.classList.remove('hidden');
 }
 
@@ -164,8 +185,15 @@ function closeProblemActionsModal() {
     editingProblemId = null;
     problemTextEdit.value = '';
     problemHomeEdit.value = '1';
+    problemUseGapEdit.value = '0';
+    problemGapEdit.value = '';
+    toggleGapInput();
     problemActionsModal.classList.add('hidden');
 }
+function toggleGapInput() {
+    problemGapWrapper.classList.toggle('hidden', problemUseGapEdit.value !== '1');
+}
+problemUseGapEdit.onchange = toggleGapInput;
 
 openConditionalModal.onclick = () => conditionalModal.classList.remove('hidden');
 conditionalModal.onclick = (e) => { if (e.target === conditionalModal) closeConditionalModal(); };
@@ -241,10 +269,13 @@ saveProblemEdit.onclick = async () => {
     const text = problemTextEdit.value.trim();
     if (!editingProblemId || text === '') return;
 
+    const useGap = problemUseGapEdit.value === '1';
+    const gap = useGap ? Number(problemGapEdit.value) : 0;
+    if (useGap && gap <= 0) return;
     const r = await fetch(api + '?action=update-problem', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ problem_id: editingProblemId, text, home: Number(problemHomeEdit.value) })
+        body: JSON.stringify({ problem_id: editingProblemId, text, home: Number(problemHomeEdit.value), use_gap: useGap, gap })
     });
 
     if (r.ok) {
@@ -308,6 +339,7 @@ backProblem.onclick = () => {
 };
 
 function renderProblem(problem, conditionals) {
+    if (countdownInterval) clearInterval(countdownInterval);
     currentProblemLabel.textContent = `Problema atual #${problem.id}`;
     pipelineView.innerHTML = '';
 
@@ -333,6 +365,10 @@ function renderProblem(problem, conditionals) {
 
     problemCardHeader.appendChild(configureProblemBtn);
     problemCard.append(problemCardHeader, problemText);
+    const info = document.createElement('p');
+    info.className = 'text-xs text-slate-400 mt-2';
+    info.textContent = Number(problem.gap || 0) > 0 ? `Gap ativo: ${problem.gap} minuto(s)` : 'Sem gap de disponibilidade';
+    problemCard.appendChild(info);
 
     const conditionalsCard = document.createElement('div');
     conditionalsCard.className = 'bg-slate-900 border border-white/10 rounded p-3';
@@ -366,19 +402,45 @@ function renderProblem(problem, conditionals) {
             const conditionalText = document.createElement('p');
             conditionalText.className = 'mt-1';
             conditionalText.textContent = c.text;
+            const disponibilidade = c.disponibilidade ? new Date(String(c.disponibilidade).replace(' ', 'T')) : null;
+            const blocked = disponibilidade && disponibilidade.getTime() > Date.now();
+            const countdown = document.createElement('p');
+            countdown.className = 'text-xs mt-2 text-amber-300';
+            if (blocked) {
+                countdown.dataset.until = String(disponibilidade.getTime());
+            }
 
             conditionalCard.onclick = () => {
+                if (blocked) return;
                 problemHistory.push(currentProblemId);
                 currentProblemId = Number(c.id_next_problem);
                 updateBackButton();
                 loadProblem(currentProblemId);
             };
+            if (blocked) {
+                conditionalCard.classList.add('opacity-60', 'cursor-not-allowed');
+            } else {
+                conditionalCard.classList.add('cursor-pointer');
+            }
 
             conditionalHeader.appendChild(configureConditionalBtn);
-            conditionalCard.append(conditionalHeader, conditionalText);
+            conditionalCard.append(conditionalHeader, conditionalText, countdown);
             conditionalsGrid.appendChild(conditionalCard);
         });
     }
+    countdownInterval = setInterval(() => {
+        document.querySelectorAll('[data-until]').forEach((el) => {
+            const diff = Number(el.dataset.until) - Date.now();
+            if (diff <= 0) {
+                el.textContent = 'Disponível novamente.';
+                return;
+            }
+            const total = Math.floor(diff / 1000);
+            const m = Math.floor(total / 60);
+            const s = total % 60;
+            el.textContent = `Disponível em ${m}m ${s}s`;
+        });
+    }, 1000);
 
     conditionalsCard.appendChild(conditionalsGrid);
     wrapper.append(problemCard, conditionalsCard);
@@ -398,6 +460,17 @@ async function loadProblem(id) {
 
 updateBackButton();
 loadProblem(rootProblemId);
+
+concludeProblem.onclick = async () => {
+    const r = await fetch(api + '?action=conclude-problem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ problem_id: currentProblemId })
+    });
+    if (r.ok) {
+        loadProblem(currentProblemId);
+    }
+};
 </script>
 </body>
 </html>

@@ -44,7 +44,7 @@ final class MySQLPipelineRepository
 
     public function findProblem(int $userId, int $id): ?array
     {
-        $stmt = $this->pdo->prepare('SELECT id, text, home FROM problems WHERE id = :id AND user_id = :user_id LIMIT 1');
+        $stmt = $this->pdo->prepare('SELECT id, text, home, gap, disponibilidade FROM problems WHERE id = :id AND user_id = :user_id LIMIT 1');
         $stmt->execute(['id' => $id, 'user_id' => $userId]);
         $row = $stmt->fetch();
 
@@ -52,10 +52,10 @@ final class MySQLPipelineRepository
     }
 
 
-    public function updateProblem(int $userId, int $id, string $text, int $home): bool
+    public function updateProblem(int $userId, int $id, string $text, int $home, ?int $gap): bool
     {
-        $stmt = $this->pdo->prepare('UPDATE problems SET text = :text, home = :home WHERE id = :id AND user_id = :user_id');
-        $stmt->execute(['text' => $text, 'home' => $home, 'id' => $id, 'user_id' => $userId]);
+        $stmt = $this->pdo->prepare('UPDATE problems SET text = :text, home = :home, gap = :gap WHERE id = :id AND user_id = :user_id');
+        $stmt->execute(['text' => $text, 'home' => $home, 'gap' => $gap, 'id' => $id, 'user_id' => $userId]);
 
         return $stmt->rowCount() > 0;
     }
@@ -78,7 +78,11 @@ final class MySQLPipelineRepository
 
     public function getConditionalsFrom(int $problemId): array
     {
-        $stmt = $this->pdo->prepare('SELECT id, id_father_problem, id_next_problem, text FROM conditionals WHERE id_father_problem = :id ORDER BY id ASC');
+        $stmt = $this->pdo->prepare('SELECT c.id, c.id_father_problem, c.id_next_problem, c.text, p.disponibilidade
+            FROM conditionals c
+            INNER JOIN problems p ON p.id = c.id_next_problem
+            WHERE c.id_father_problem = :id
+            ORDER BY c.id ASC');
         $stmt->execute(['id' => $problemId]);
 
         return $stmt->fetchAll();
@@ -106,6 +110,26 @@ final class MySQLPipelineRepository
         );
         $stmt->execute(['conditional_id' => $conditionalId, 'user_id' => $userId]);
 
+        return $stmt->rowCount() > 0;
+    }
+
+    public function concludeProblem(int $userId, int $problemId): bool
+    {
+        $problem = $this->findProblem($userId, $problemId);
+        if (!$problem) {
+            return false;
+        }
+
+        $gap = (int) ($problem['gap'] ?? 0);
+        $stmt = $this->pdo->prepare('UPDATE problems SET disponibilidade = :disponibilidade WHERE id = :id AND user_id = :user_id');
+
+        $disponibilidade = null;
+        if ($gap > 0) {
+            $dt = new \DateTimeImmutable('now');
+            $disponibilidade = $dt->modify('+' . $gap . ' minutes')->format('Y-m-d H:i:s');
+        }
+
+        $stmt->execute(['disponibilidade' => $disponibilidade, 'id' => $problemId, 'user_id' => $userId]);
         return $stmt->rowCount() > 0;
     }
 }

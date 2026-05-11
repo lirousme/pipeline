@@ -96,20 +96,40 @@ if ($method === 'POST' && $action === 'update-problem') {
     $problemId = (int) ($body['problem_id'] ?? 0);
     $text = trim((string) ($body['text'] ?? ''));
     $home = (int) ($body['home'] ?? 1);
+    $useGap = (bool) ($body['use_gap'] ?? false);
+    $gap = $useGap ? (int) ($body['gap'] ?? 0) : null;
 
-    if ($problemId <= 0 || $text === '' || !in_array($home, [1, 2], true)) {
+    if ($problemId <= 0 || $text === '' || !in_array($home, [1, 2], true) || ($useGap && $gap <= 0)) {
         http_response_code(422);
         echo json_encode(['message' => 'Dados inválidos']);
         exit;
     }
 
-    if (!$repo->updateProblem($userId, $problemId, $text, $home)) {
+    if (!$repo->updateProblem($userId, $problemId, $text, $home, $gap)) {
         http_response_code(404);
         echo json_encode(['message' => 'Problema não encontrado']);
         exit;
     }
 
     echo json_encode(['message' => 'Problema atualizado']);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'conclude-problem') {
+    $problemId = (int) ($body['problem_id'] ?? 0);
+    if ($problemId <= 0) {
+        http_response_code(422);
+        echo json_encode(['message' => 'Dados inválidos']);
+        exit;
+    }
+
+    if (!$repo->concludeProblem($userId, $problemId)) {
+        http_response_code(404);
+        echo json_encode(['message' => 'Problema não encontrado']);
+        exit;
+    }
+
+    echo json_encode(['message' => 'Problema concluído']);
     exit;
 }
 
