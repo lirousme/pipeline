@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS problems (
     user_id INT UNSIGNED NOT NULL,
     text TEXT NOT NULL,
     home INT NOT NULL,
+    gap INT NULL,
+    disponibilidade DATETIME NULL,
     CONSTRAINT fk_problem_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
