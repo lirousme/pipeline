@@ -24,15 +24,32 @@ authForm.onsubmit=async(e)=>{e.preventDefault();const r=await fetch(<?= json_enc
 </script>
 <?php else: ?>
 <header class="border-b border-white/10 p-4 flex justify-between"><strong>Pipeline de <?= htmlspecialchars((string)$loggedUser) ?></strong><div class="flex gap-2"><button id="openModal" class="bg-indigo-500 px-3 py-1 rounded">+ Problema</button><a href="?logout=1" class="bg-slate-700 px-3 py-1 rounded">Sair</a></div></header>
-<main class="p-4"><section><h2 class="font-semibold mb-2">Problemas</h2><ul id="problemList" class="space-y-2"></ul></section></main>
+<main class="p-4 space-y-6">
+    <section>
+        <h2 class="font-semibold mb-2">Problemas em "tempo de assar"</h2>
+        <ul id="bakingList" class="space-y-2"></ul>
+    </section>
+    <section>
+        <h2 class="font-semibold mb-2">Problemas</h2>
+        <ul id="problemList" class="space-y-2"></ul>
+    </section>
+</main>
 <div id="modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center"><div class="bg-slate-900 p-4 rounded w-full max-w-md"><h3 class="mb-2">Novo problema</h3><input id="problemText" class="w-full bg-slate-800 rounded p-2" placeholder="Texto"><button id="saveProblem" class="mt-3 bg-emerald-600 rounded px-3 py-1">Salvar</button></div></div>
 <script>
 const api=<?= json_encode($apiUrl) ?>;
 const problemList=document.getElementById('problemList');
+const bakingList=document.getElementById('bakingList');
 const pipelineUrl=<?= json_encode($pipelineUrl) ?>;
+let bakingTick = null;
 openModal.onclick=()=>modal.classList.remove('hidden');modal.onclick=(e)=>{if(e.target===modal)modal.classList.add('hidden')};
 saveProblem.onclick=async()=>{const r=await fetch(api+'?action=create-problem',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:problemText.value})});if(r.ok){problemText.value='';modal.classList.add('hidden');loadProblems();}};
 async function loadProblems(){const r=await fetch(api+'?action=list-problems');const d=await r.json();problemList.innerHTML='';(d.items||[]).forEach(p=>{const li=document.createElement('li');li.className='bg-slate-900 border border-white/10 p-3 rounded';li.innerHTML=`<div class='font-medium'>#${p.id} ${p.text}</div><div class='mt-2 flex gap-2'><a class='bg-indigo-600 rounded px-2 py-1 text-sm inline-block' href='${pipelineUrl}?problem_id=${p.id}'>Abrir pipeline</a></div>`;problemList.appendChild(li);});}
+function formatDiff(ms){if(ms<=0)return 'Pronto para retomar';const total=Math.floor(ms/1000);const h=Math.floor(total/3600);const m=Math.floor((total%3600)/60);const s=total%60;return `Disponível em ${h}h ${m}m ${s}s`;}
+function renderBaking(items){bakingList.innerHTML='';if(!items.length){bakingList.innerHTML="<li class='text-slate-400 text-sm'>Nenhum problema assando agora.</li>";return;}items.forEach((p)=>{const li=document.createElement('li');li.className='bg-slate-900 border border-amber-500/30 p-3 rounded';const until=Date.parse(String(p.disponibilidade).replace(' ','T'));const blocked=Number.isFinite(until)&&until>Date.now();const actionClass=blocked?'bg-slate-600 pointer-events-none opacity-70':'bg-emerald-600';li.innerHTML=`<div class='font-medium'>#${p.id} ${p.text}</div><div class='text-xs text-amber-300 mt-1' data-until='${until}'>${formatDiff(until-Date.now())}</div><div class='mt-2'><a class='${actionClass} rounded px-2 py-1 text-sm inline-block' href='${pipelineUrl}?problem_id=${p.id}'>${blocked?'Aguardando':'Retomar agora'}</a></div>`;bakingList.appendChild(li);});}
+async function loadBakingProblems(){const r=await fetch(api+'?action=list-baking-problems');const d=await r.json();renderBaking(d.items||[]);}
+function startBakingCountdown(){if(bakingTick)clearInterval(bakingTick);bakingTick=setInterval(()=>{document.querySelectorAll('[data-until]').forEach((el)=>{const until=Number(el.dataset.until||0);el.textContent=formatDiff(until-Date.now());});},1000);}
 loadProblems();
+loadBakingProblems();
+startBakingCountdown();
 </script>
 <?php endif; ?></body></html>
