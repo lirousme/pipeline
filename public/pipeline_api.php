@@ -27,6 +27,11 @@ if ($method === 'GET' && $action === 'list-problems') {
     exit;
 }
 
+if ($method === 'GET' && $action === 'list-baking-problems') {
+    echo json_encode(['items' => $repo->listBakingProblems($userId)], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 
 if ($method === 'GET' && $action === 'search-problems') {
     $q = trim((string) ($_GET['q'] ?? ''));

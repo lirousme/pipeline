@@ -28,6 +28,20 @@ final class MySQLPipelineRepository
         return $stmt->fetchAll();
     }
 
+    public function listBakingProblems(int $userId): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT id, text, disponibilidade
+            FROM problems
+            WHERE user_id = :user_id
+              AND disponibilidade IS NOT NULL
+            ORDER BY disponibilidade ASC'
+        );
+        $stmt->execute(['user_id' => $userId]);
+
+        return $stmt->fetchAll();
+    }
+
 
     public function searchProblems(int $userId, string $query, int $limit = 8): array
     {
