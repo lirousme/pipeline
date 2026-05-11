@@ -117,14 +117,56 @@ final class MySQLPipelineRepository
 
     public function deleteConditional(int $userId, int $conditionalId): bool
     {
-        $stmt = $this->pdo->prepare(
-            'DELETE c FROM conditionals c
-            INNER JOIN problems p ON p.id = c.id_father_problem
-            WHERE c.id = :conditional_id AND p.user_id = :user_id'
-        );
-        $stmt->execute(['conditional_id' => $conditionalId, 'user_id' => $userId]);
+        $this->pdo->beginTransaction();
 
-        return $stmt->rowCount() > 0;
+        try {
+            $findStmt = $this->pdo->prepare(
+                'SELECT c.id_next_problem
+                FROM conditionals c
+                INNER JOIN problems p ON p.id = c.id_father_problem
+                WHERE c.id = :conditional_id AND p.user_id = :user_id
+                LIMIT 1'
+            );
+            $findStmt->execute(['conditional_id' => $conditionalId, 'user_id' => $userId]);
+            $row = $findStmt->fetch();
+
+            if (!$row) {
+                $this->pdo->rollBack();
+                return false;
+            }
+
+            $nextProblemId = (int) $row['id_next_problem'];
+
+            $deleteStmt = $this->pdo->prepare(
+                'DELETE c FROM conditionals c
+                INNER JOIN problems p ON p.id = c.id_father_problem
+                WHERE c.id = :conditional_id AND p.user_id = :user_id'
+            );
+            $deleteStmt->execute(['conditional_id' => $conditionalId, 'user_id' => $userId]);
+
+            if ($deleteStmt->rowCount() === 0) {
+                $this->pdo->rollBack();
+                return false;
+            }
+
+            $countStmt = $this->pdo->prepare('SELECT COUNT(*) FROM conditionals WHERE id_next_problem = :next_problem_id');
+            $countStmt->execute(['next_problem_id' => $nextProblemId]);
+            $isReferencedByOtherConditional = (int) $countStmt->fetchColumn() > 0;
+
+            if (!$isReferencedByOtherConditional) {
+                $deleteProblemStmt = $this->pdo->prepare('DELETE FROM problems WHERE id = :id AND user_id = :user_id');
+                $deleteProblemStmt->execute(['id' => $nextProblemId, 'user_id' => $userId]);
+            }
+
+            $this->pdo->commit();
+            return true;
+        } catch (\Throwable $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+
+            throw $e;
+        }
     }
 
     public function concludeProblem(int $userId, int $problemId): bool
