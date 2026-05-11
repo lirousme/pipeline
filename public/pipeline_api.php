@@ -165,7 +165,7 @@ if ($method === 'POST' && $action === 'add-conditional') {
         }
         $next = $selectedNext;
     } elseif ($newProblemText !== '') {
-        $next = $repo->createProblem($userId, $newProblemText);
+        $next = $repo->createProblem($userId, $newProblemText, 2);
     } else {
         http_response_code(422);
         echo json_encode(['message' => 'Selecione ou crie um problema para a condicional']);
