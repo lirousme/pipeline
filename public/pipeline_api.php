@@ -95,14 +95,15 @@ if ($method === 'GET' && $action === 'pipeline') {
 if ($method === 'POST' && $action === 'update-problem') {
     $problemId = (int) ($body['problem_id'] ?? 0);
     $text = trim((string) ($body['text'] ?? ''));
+    $home = (int) ($body['home'] ?? 1);
 
-    if ($problemId <= 0 || $text === '') {
+    if ($problemId <= 0 || $text === '' || !in_array($home, [1, 2], true)) {
         http_response_code(422);
         echo json_encode(['message' => 'Dados inválidos']);
         exit;
     }
 
-    if (!$repo->updateProblem($userId, $problemId, $text)) {
+    if (!$repo->updateProblem($userId, $problemId, $text, $home)) {
         http_response_code(404);
         echo json_encode(['message' => 'Problema não encontrado']);
         exit;

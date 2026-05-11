@@ -71,6 +71,13 @@ if ($problemId <= 0) {
         <h3 class="mb-3 text-lg font-semibold">Configurar problema</h3>
         <div class="space-y-3">
             <textarea id="problemTextEdit" class="w-full bg-slate-800 rounded p-2 min-h-28" placeholder="Texto do problema"></textarea>
+            <div>
+                <label for="problemHomeEdit" class="block text-sm mb-1">Exibir na home</label>
+                <select id="problemHomeEdit" class="w-full bg-slate-800 rounded p-2">
+                    <option value="1">Mostrar na home</option>
+                    <option value="2">Não mostrar na home</option>
+                </select>
+            </div>
             <div class="flex justify-between gap-2">
                 <button id="deleteProblemBtn" class="bg-red-700 rounded px-3 py-1 text-sm">Excluir problema</button>
                 <div class="flex gap-2">
@@ -114,6 +121,7 @@ const currentProblemLabel = document.getElementById('currentProblemLabel');
 const problemActionsModal = document.getElementById('problemActionsModal');
 const problemTextEdit = document.getElementById('problemTextEdit');
 const saveProblemEdit = document.getElementById('saveProblemEdit');
+const problemHomeEdit = document.getElementById('problemHomeEdit');
 const deleteProblemBtn = document.getElementById('deleteProblemBtn');
 const cancelProblemEdit = document.getElementById('cancelProblemEdit');
 const conditionalActionsModal = document.getElementById('conditionalActionsModal');
@@ -148,12 +156,14 @@ function closeConditionalActionsModal() {
 function openProblemActionsModal(problem) {
     editingProblemId = Number(problem.id);
     problemTextEdit.value = problem.text || '';
+    problemHomeEdit.value = String(problem.home || 1);
     problemActionsModal.classList.remove('hidden');
 }
 
 function closeProblemActionsModal() {
     editingProblemId = null;
     problemTextEdit.value = '';
+    problemHomeEdit.value = '1';
     problemActionsModal.classList.add('hidden');
 }
 
@@ -234,7 +244,7 @@ saveProblemEdit.onclick = async () => {
     const r = await fetch(api + '?action=update-problem', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ problem_id: editingProblemId, text })
+        body: JSON.stringify({ problem_id: editingProblemId, text, home: Number(problemHomeEdit.value) })
     });
 
     if (r.ok) {
