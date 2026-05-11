@@ -12,17 +12,17 @@ final class MySQLPipelineRepository
     {
     }
 
-    public function createProblem(int $userId, string $text): int
+    public function createProblem(int $userId, string $text, int $home = 1): int
     {
-        $stmt = $this->pdo->prepare('INSERT INTO problems (user_id, text) VALUES (:user_id, :text)');
-        $stmt->execute(['user_id' => $userId, 'text' => $text]);
+        $stmt = $this->pdo->prepare('INSERT INTO problems (user_id, text, home) VALUES (:user_id, :text, :home)');
+        $stmt->execute(['user_id' => $userId, 'text' => $text, 'home' => $home]);
 
         return (int) $this->pdo->lastInsertId();
     }
 
     public function listProblems(int $userId): array
     {
-        $stmt = $this->pdo->prepare('SELECT id, text FROM problems WHERE user_id = :user_id ORDER BY id DESC');
+        $stmt = $this->pdo->prepare('SELECT id, text FROM problems WHERE user_id = :user_id AND home = 1 ORDER BY id DESC');
         $stmt->execute(['user_id' => $userId]);
 
         return $stmt->fetchAll();
