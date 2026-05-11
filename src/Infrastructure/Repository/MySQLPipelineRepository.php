@@ -44,7 +44,7 @@ final class MySQLPipelineRepository
 
     public function findProblem(int $userId, int $id): ?array
     {
-        $stmt = $this->pdo->prepare('SELECT id, text FROM problems WHERE id = :id AND user_id = :user_id LIMIT 1');
+        $stmt = $this->pdo->prepare('SELECT id, text, home FROM problems WHERE id = :id AND user_id = :user_id LIMIT 1');
         $stmt->execute(['id' => $id, 'user_id' => $userId]);
         $row = $stmt->fetch();
 
@@ -52,10 +52,10 @@ final class MySQLPipelineRepository
     }
 
 
-    public function updateProblem(int $userId, int $id, string $text): bool
+    public function updateProblem(int $userId, int $id, string $text, int $home): bool
     {
-        $stmt = $this->pdo->prepare('UPDATE problems SET text = :text WHERE id = :id AND user_id = :user_id');
-        $stmt->execute(['text' => $text, 'id' => $id, 'user_id' => $userId]);
+        $stmt = $this->pdo->prepare('UPDATE problems SET text = :text, home = :home WHERE id = :id AND user_id = :user_id');
+        $stmt->execute(['text' => $text, 'home' => $home, 'id' => $id, 'user_id' => $userId]);
 
         return $stmt->rowCount() > 0;
     }
